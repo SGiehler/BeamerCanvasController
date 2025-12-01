@@ -104,20 +104,7 @@ std::vector<Waypoint> Settings::getWaypoints() {
     return v;
 }
 
-void Settings::addWaypoint(String name, float position) {
-    xSemaphoreTake(mutex, portMAX_DELAY);
-    // Check if exists, update if so
-    for(auto &wp : waypoints) {
-        if(wp.name == name) {
-            wp.position = position;
-            save(); // Updates the JSON in prefs
-            xSemaphoreGive(mutex);
-            return;
-        }
-    }
-    waypoints.push_back({name, position});
-
-    // Save waypoints to prefs
+void Settings::saveWaypoints() {
     DynamicJsonDocument doc(2048);
     JsonArray arr = doc.to<JsonArray>();
     for(auto &wp : waypoints) {
@@ -128,6 +115,21 @@ void Settings::addWaypoint(String name, float position) {
     String output;
     serializeJson(doc, output);
     prefs.putString("waypoints", output);
+}
+
+void Settings::addWaypoint(String name, float position) {
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    // Check if exists, update if so
+    for(auto &wp : waypoints) {
+        if(wp.name == name) {
+            wp.position = position;
+            saveWaypoints();
+            xSemaphoreGive(mutex);
+            return;
+        }
+    }
+    waypoints.push_back({name, position});
+    saveWaypoints();
     xSemaphoreGive(mutex);
 }
 
@@ -139,17 +141,7 @@ void Settings::removeWaypoint(String name) {
             break;
         }
     }
-     // Save waypoints to prefs
-    DynamicJsonDocument doc(2048);
-    JsonArray arr = doc.to<JsonArray>();
-    for(auto &wp : waypoints) {
-        JsonObject obj = arr.createNestedObject();
-        obj["n"] = wp.name;
-        obj["p"] = wp.position;
-    }
-    String output;
-    serializeJson(doc, output);
-    prefs.putString("waypoints", output);
+    saveWaypoints();
     xSemaphoreGive(mutex);
 }
 

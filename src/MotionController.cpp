@@ -176,13 +176,16 @@ bool MotionController::homeAll() {
         steppers[i].setCurrentPositionInSteps(0);
         steppers[i].setupRelativeMoveInMillimeters(10.0); // Back off 10mm
     }
-    while(!steppers[0].processMovement() || !steppers[1].processMovement() || !steppers[2].processMovement() || !steppers[3].processMovement()) {
-         steppers[0].processMovement();
-         steppers[1].processMovement();
-         steppers[2].processMovement();
-         steppers[3].processMovement();
-         yield(); // Feed Watchdog
-         if (steppers[0].motionComplete() && steppers[1].motionComplete() && steppers[2].motionComplete() && steppers[3].motionComplete()) break;
+
+    anyMoving = true;
+    while(anyMoving) {
+        anyMoving = false;
+        yield(); // Feed Watchdog
+        for(int i=0; i<4; i++) {
+            if(steppers[i].processMovement()) {
+                anyMoving = true;
+            }
+        }
     }
 
     // 3. Move slow towards home

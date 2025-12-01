@@ -121,16 +121,8 @@ const char* settings_html = R"rawliteral(
   </form>
 
   <div class="card">
-    <h2>Steppers (X, Y, Z, A)</h2>
-    <form action="/api/save_stepper" method="POST">
-      <input type="hidden" name="axis" value="0">
-      <h3>Axis X</h3>
-      <label>SG Threshold</label><input type="number" name="sg" id="x_sg">
-      <label>Current (mA)</label><input type="number" name="cur" id="x_cur">
-      <label>Microsteps</label><input type="number" name="ms" id="x_ms">
-      <button type="submit">Save X</button>
-    </form>
-    <!-- Repeat for others or make dynamic JS -->
+    <h2>Steppers</h2>
+    <div id="stepper_forms"></div>
   </div>
 
   <div class="card">
@@ -148,6 +140,25 @@ const char* settings_html = R"rawliteral(
   </div>
 
 <script>
+const axisNames = ["X", "Y", "Z", "A"];
+
+function renderStepperForms(steppersData) {
+    let html = "";
+    steppersData.forEach((st, i) => {
+        html += `
+        <form action="/api/save_stepper" method="POST" style="border-top: 1px solid #ccc; padding-top: 10px;">
+            <input type="hidden" name="axis" value="${i}">
+            <h3>Axis ${axisNames[i]}</h3>
+            <label>SG Threshold</label><input type="number" name="sg" value="${st.sg}">
+            <label>Current (mA)</label><input type="number" name="cur" value="${st.cur}">
+            <label>Microsteps</label><input type="number" name="ms" value="${st.ms}">
+            <button type="submit">Save ${axisNames[i]}</button>
+        </form>
+        `;
+    });
+    document.getElementById('stepper_forms').innerHTML = html;
+}
+
 // Fetch current settings to populate fields
 fetch('/api/settings').then(res => res.json()).then(data => {
     document.getElementById('ssid').value = data.wifi.ssid;
@@ -158,10 +169,7 @@ fetch('/api/settings').then(res => res.json()).then(data => {
 
     document.getElementById('max_len').value = data.max_len;
 
-    document.getElementById('x_sg').value = data.steppers[0].sg;
-    document.getElementById('x_cur').value = data.steppers[0].cur;
-    document.getElementById('x_ms').value = data.steppers[0].ms;
-    // ... others
+    renderStepperForms(data.steppers);
 });
 </script>
 </body>

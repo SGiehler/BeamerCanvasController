@@ -1,0 +1,125 @@
+name: PlatformIO Build and Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*' # Trigger on tags like v1.0, v2.5.1
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PLATFORMIO_BUILD_FLAGS: "-DFIRMWARE_VERSION='\"${{ github.ref_name }}\"'"
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Fetch all history for git describe
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+    - name: Install PlatformIO
+      run: pip install -U platformio
+
+    # Removed set_ui_version.py step as it is not present in this repo
+
+    - name: Build PlatformIO Project
+      run: pio run -e esp32vn-iot-uno
+
+    - name: Build Filesystem Image
+      run: pio run -e esp32vn-iot-uno -t buildfs
+
+    # Merge Binaries
+    # Offsets for min_spiffs.csv (4MB Flash):
+    # Bootloader: 0x1000
+    # Partitions: 0x8000
+    # App0: 0x10000
+    # SPIFFS/LittleFS: 0x3D0000 (Check if this matches min_spiffs.csv standard)
+    # Note: Standard min_spiffs has spiffs at 0x3D0000.
+    - name: Merge Binaries
+      run: |
+        pio pkg exec -p "tool-esptoolpy" -- esptool.py --chip esp32 merge_bin -o .pio/build/esp32vn-iot-uno/complete-firmware.bin \
+        0x1000 .pio/build/esp32vn-iot-uno/bootloader.bin \
+        0x8000 .pio/build/esp32vn-iot-uno/partitions.bin \
+        0x10000 .pio/build/esp32vn-iot-uno/firmware.bin \
+        0x3D0000 .pio/build/esp32vn-iot-uno/littlefs.bin
+
+    - name: Upload firmware binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware
+        path: .pio/build/esp32vn-iot-uno/firmware.bin
+    - name: Upload filesystem image
+      uses: actions/upload-artifact@v4
+      with:
+        name: littlefs
+        path: .pio/build/esp32vn-iot-uno/littlefs.bin
+    - name: Upload complete firmware binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: complete-firmware
+        path: .pio/build/esp32vn-iot-uno/complete-firmware.bin
+
+  release:
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download firmware artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware
+      - name: Download filesystem artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: littlefs
+      - name: Download complete firmware artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: complete-firmware
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+      - name: Upload Firmware Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./firmware.bin
+          asset_name: firmware-${{ github.ref_name }}.bin
+          asset_content_type: application/octet-stream
+      - name: Upload Filesystem Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./littlefs.bin
+          asset_name: littlefs-${{ github.ref_name }}.bin
+          asset_content_type: application/octet-stream
+      - name: Upload Complete Firmware Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./complete-firmware.bin
+          asset_name: complete-firmware-${{ github.ref_name }}.bin
+          asset_content_type: application/octet-stream

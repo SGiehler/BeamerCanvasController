@@ -55,7 +55,7 @@ public:
 
     // Load/Save helpers
     void load(); // Loads from preferences
-    void save(); // Saves to preferences (usually done in setters)
+    void saveWaypoints(); // Saves waypoints to preferences
 
     SemaphoreHandle_t mutex;
 
