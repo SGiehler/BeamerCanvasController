@@ -226,15 +226,15 @@ void WebHandler::setupEndpoints() {
 
     // API Status
     server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request){
-        DynamicJsonDocument doc(1024);
+        JsonDocument doc;
         doc["position"] = motion.getCurrentPosition();
         doc["homed"] = motion.isHomed();
         doc["moving"] = motion.isMoving();
 
-        JsonArray wpArr = doc.createNestedArray("waypoints");
+        JsonArray wpArr = doc["waypoints"].to<JsonArray>();
         std::vector<Waypoint> wps = settings.getWaypoints();
         for(auto &wp : wps) {
-            JsonObject obj = wpArr.createNestedObject();
+            JsonObject obj = wpArr.add<JsonObject>();
             obj["name"] = wp.name;
             obj["position"] = wp.position;
         }
@@ -271,12 +271,12 @@ void WebHandler::setupEndpoints() {
 
     // API Settings GET
     server.on("/api/settings", HTTP_GET, [](AsyncWebServerRequest *request){
-        DynamicJsonDocument doc(1024);
+        JsonDocument doc;
 
-        JsonObject wifi = doc.createNestedObject("wifi");
+        JsonObject wifi = doc["wifi"].to<JsonObject>();
         wifi["ssid"] = settings.getWifiSSID();
 
-        JsonObject mqtt = doc.createNestedObject("mqtt");
+        JsonObject mqtt = doc["mqtt"].to<JsonObject>();
         mqtt["host"] = settings.getMqttHost();
         mqtt["port"] = settings.getMqttPort();
         mqtt["user"] = settings.getMqttUser();
@@ -284,9 +284,9 @@ void WebHandler::setupEndpoints() {
 
         doc["max_len"] = settings.getMaxTravel();
 
-        JsonArray stArr = doc.createNestedArray("steppers");
+        JsonArray stArr = doc["steppers"].to<JsonArray>();
         for(int i=0; i<4; i++) {
-            JsonObject st = stArr.createNestedObject();
+            JsonObject st = stArr.add<JsonObject>();
             StepperSettings s = settings.getStepperSettings(i);
             st["sg"] = s.stallGuardThreshold;
             st["cur"] = s.current;

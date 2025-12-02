@@ -77,7 +77,7 @@ void handleMqtt() {
 void publishStatus() {
     if(!mqttClient.connected()) return;
 
-    DynamicJsonDocument doc(512);
+    JsonDocument doc;
     doc["position"] = motion.getCurrentPosition();
     doc["homed"] = motion.isHomed();
     doc["moving"] = motion.isMoving();

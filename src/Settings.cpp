@@ -40,7 +40,7 @@ void Settings::load() {
     // Load Waypoints
     // We'll store waypoints as a JSON string for simplicity because Preferences doesn't support arrays nicely
     String wpJson = prefs.getString("waypoints", "[]");
-    DynamicJsonDocument doc(2048);
+    JsonDocument doc;
     deserializeJson(doc, wpJson);
     JsonArray arr = doc.as<JsonArray>();
 
@@ -105,10 +105,10 @@ std::vector<Waypoint> Settings::getWaypoints() {
 }
 
 void Settings::saveWaypoints() {
-    DynamicJsonDocument doc(2048);
+    JsonDocument doc;
     JsonArray arr = doc.to<JsonArray>();
     for(auto &wp : waypoints) {
-        JsonObject obj = arr.createNestedObject();
+        JsonObject obj = arr.add<JsonObject>();
         obj["n"] = wp.name;
         obj["p"] = wp.position;
     }
